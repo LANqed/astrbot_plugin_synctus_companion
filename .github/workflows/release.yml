@@ -1,0 +1,215 @@
+name: AstrBot plugin
+
+# 插件的版本在 astrbot_plugin_synctus_companion/metadata.yaml，与 Synctus 本体的
+# Cargo.toml 版本互不相干，因此它有自己的发布流程，不搭 release.yml 的车。
+#
+# 两种触发方式：
+#   1. 推 `astrbot-plugin-v*` 标签，标签必须与 metadata.yaml 的 version 一致。
+#   2. 手动运行。留空版本号则用 metadata.yaml 里的当前值，并在需要时打上标签。
+#
+# 无论哪种，产物都是一个可直接在 AstrBot「从本地上传」的 ZIP。
+
+on:
+  push:
+    # 这里刻意不加 paths 过滤：paths 对标签推送同样生效，会让发布标签被静默
+    # 忽略——那是最难排查的一类 CI 故障。
+    branches: [astrbot-plugin]
+    tags: ['astrbot-plugin-v*']
+  pull_request:
+    paths:
+      - 'astrbot_plugin_synctus_companion/**'
+      - 'scripts/pack_astrbot_plugin.py'
+      - 'scripts/verify_astrbot_plugin_zip.py'
+      - '.github/workflows/astrbot-plugin.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '发布 Release（不勾选则只跑测试并上传构建产物）'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: '标记为预发布'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: astrbot-plugin-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PLUGIN_NAME: astrbot_plugin_synctus_companion
+
+jobs:
+  test:
+    name: Test and package
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      artifact: ${{ steps.meta.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # 插件运行时依赖，同时也是加密测试向量所需
+          python -m pip install argon2-cffi pynacl
+          python -m pip install pytest pytest-timeout ruff
+
+      - name: Read plugin metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          version=$(sed -nE 's/^version:[[:space:]]*(.+)$/\1/p' \
+            "$PLUGIN_NAME/metadata.yaml" | head -n1 | tr -d '"'"'"' ')
+          name=$(sed -nE 's/^name:[[:space:]]*(.+)$/\1/p' \
+            "$PLUGIN_NAME/metadata.yaml" | head -n1 | tr -d '"'"'"' ')
+          test -n "$version"
+          test "$name" = "$PLUGIN_NAME"
+
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            # 标签是发布依据，但它必须与 metadata.yaml 一致，否则装上的插件
+            # 会声称一个与 Release 不同的版本。
+            want="${GITHUB_REF_NAME#astrbot-plugin-}"
+            if [ "$want" != "$version" ]; then
+              echo "::error::标签 $GITHUB_REF_NAME 与 metadata.yaml 的 $version 不一致"
+              exit 1
+            fi
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=astrbot-plugin-$version" >> "$GITHUB_OUTPUT"
+          echo "artifact=$PLUGIN_NAME-$version.zip" >> "$GITHUB_OUTPUT"
+          echo "插件 $name $version" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Lint
+        run: |
+          # 与本地一致的规则集：真错误 + 明确的简化项，不含风格类噪声。
+          python -m ruff check "$PLUGIN_NAME" \
+            --select F,E9,SIM,ISC,B,RUF023,UP012,UP035,PLR0402,PLR1714,PLR5501
+
+      - name: Build the relay so the integration tests are not skipped
+        run: cargo build -p synctus-server --bin synctus-server
+
+      - name: Test
+        run: python -m pytest "$PLUGIN_NAME/tests" -q
+
+      - name: Package
+        run: python scripts/pack_astrbot_plugin.py
+
+      - name: Verify the archive is installable
+        # 结构与可导入性都在这个脚本里，本地跑的是同一份实现。
+        run: python scripts/verify_astrbot_plugin_zip.py "dist/${{ steps.meta.outputs.artifact }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact }}
+          path: dist/${{ steps.meta.outputs.artifact }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: test
+    # 标签触发时总是发布；手动触发时看勾选。PR 与普通推送只留构建产物。
+    if: >-
+      github.ref_type == 'tag' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.test.outputs.artifact }}
+          path: dist
+
+      - name: Create the tag when publishing manually
+        if: github.ref_type != 'tag'
+        run: |
+          set -euo pipefail
+          tag='${{ needs.test.outputs.tag }}'
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "标签 $tag 已存在，复用它"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+            git tag -a "$tag" -m "AstrBot plugin ${{ needs.test.outputs.version }}"
+            git push origin "$tag"
+          fi
+
+      - name: Generate checksum
+        working-directory: dist
+        run: sha256sum *.zip > SHA256SUMS.txt
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.test.outputs.tag }}
+          name: AstrBot 插件 ${{ needs.test.outputs.version }}
+          prerelease: ${{ inputs.prerelease == true }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          body: |
+            让 Bot 作为一台设备出现在 Synctus 房间里：它的一天来自
+            [astrbot_plugin_private_companion](https://github.com/menglimi/astrbot_plugin_private_companion)
+            的日程，你在电脑悬浮窗或手机通知栏里看到的它，和看一个真人搭档没有区别。
+
+            ```
+            小澈 · 手机   在忙
+            备忘录：赶稿子
+            🔋68%  🍅▶专注 41:20  ☑4/10
+            ```
+
+            ## 安装
+
+            1. 下载下面的 `${{ needs.test.outputs.artifact }}`
+            2. AstrBot WebUI → 插件管理 → **从本地上传**，选这个文件
+            3. 在 AstrBot 所用的 Python 环境安装两个加密依赖：
+
+               ```sh
+               pip install argon2-cffi pynacl
+               # Docker: docker exec -it astrbot pip install argon2-cffi pynacl
+               #         然后重启容器
+               ```
+
+            4. 在插件配置里填 `target_users`（你的 QQ 号）以及
+               `synctus.server` / `synctus.invite_code`（与你自己设备上填的完全一致）
+            5. 私聊发 `陪伴 状态`，看到活动、电量、待办即为成功
+
+            `astrbot_plugin_private_companion` 是**可选依赖**：装了就用它每天
+            生成的真实日程与拟人状态，没装则退回内置默认作息。
+
+            ## 命令
+
+            ```
+            陪伴 状态     现在在做什么、手机电量、今日专注、待办进度
+            陪伴 日程     今天的完整日程
+            陪伴 待办     待办清单与临近的重要日期
+            陪伴 电量     手机电量与预计可用时间
+            陪伴 连接     Synctus 上报状态
+            陪伴 静音 / 陪伴 恢复
+            ```
+
+            ## 安全性
+
+            状态载荷用 XChaCha20-Poly1305 端到端加密，中继读不到任何内容。
+            房间密钥由配对码经 Argon2id + HKDF-SHA256 派生，参数与 Rust 客户端
+            逐位一致（由跨语言测试向量固定）。配对码即密钥，不要外传。
+
+            ---
+
+            校验完整性：`sha256sum -c SHA256SUMS.txt`
