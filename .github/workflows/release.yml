@@ -1,10 +1,7 @@
 name: AstrBot plugin
 
-# 插件的版本在 astrbot_plugin_synctus_companion/metadata.yaml，与 Synctus 本体的
-# Cargo.toml 版本互不相干，因此它有自己的发布流程，不搭 release.yml 的车。
-#
 # 两种触发方式：
-#   1. 推 `astrbot-plugin-v*` 标签，标签必须与 metadata.yaml 的 version 一致。
+#   1. 推 `v*` 标签，标签必须与 metadata.yaml 的 version 一致。
 #   2. 手动运行。留空版本号则用 metadata.yaml 里的当前值，并在需要时打上标签。
 #
 # 无论哪种，产物都是一个可直接在 AstrBot「从本地上传」的 ZIP。
@@ -13,14 +10,15 @@ on:
   push:
     # 这里刻意不加 paths 过滤：paths 对标签推送同样生效，会让发布标签被静默
     # 忽略——那是最难排查的一类 CI 故障。
-    branches: [astrbot-plugin]
-    tags: ['astrbot-plugin-v*']
+    branches: [main]
+    tags: ['v*']
   pull_request:
     paths:
-      - 'astrbot_plugin_synctus_companion/**'
-      - 'scripts/pack_astrbot_plugin.py'
-      - 'scripts/verify_astrbot_plugin_zip.py'
-      - '.github/workflows/astrbot-plugin.yml'
+      - '**.py'
+      - 'metadata.yaml'
+      - '_conf_schema.json'
+      - 'requirements.txt'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       publish:
@@ -38,11 +36,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: astrbot-plugin-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  PLUGIN_NAME: astrbot_plugin_synctus_companion
 
 jobs:
   test:
@@ -71,16 +66,16 @@ jobs:
         run: |
           set -euo pipefail
           version=$(sed -nE 's/^version:[[:space:]]*(.+)$/\1/p' \
-            "$PLUGIN_NAME/metadata.yaml" | head -n1 | tr -d '"'"'"' ')
+            metadata.yaml | head -n1 | tr -d '"'"'"' ')
           name=$(sed -nE 's/^name:[[:space:]]*(.+)$/\1/p' \
-            "$PLUGIN_NAME/metadata.yaml" | head -n1 | tr -d '"'"'"' ')
+            metadata.yaml | head -n1 | tr -d '"'"'"' ')
           test -n "$version"
-          test "$name" = "$PLUGIN_NAME"
+          test "$name" = "astrbot_plugin_synctus_companion"
 
           if [ "${{ github.ref_type }}" = "tag" ]; then
             # 标签是发布依据，但它必须与 metadata.yaml 一致，否则装上的插件
             # 会声称一个与 Release 不同的版本。
-            want="${GITHUB_REF_NAME#astrbot-plugin-}"
+            want="$GITHUB_REF_NAME"
             if [ "$want" != "$version" ]; then
               echo "::error::标签 $GITHUB_REF_NAME 与 metadata.yaml 的 $version 不一致"
               exit 1
@@ -88,28 +83,25 @@ jobs:
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=astrbot-plugin-$version" >> "$GITHUB_OUTPUT"
-          echo "artifact=$PLUGIN_NAME-$version.zip" >> "$GITHUB_OUTPUT"
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+          echo "artifact=$name-$version.zip" >> "$GITHUB_OUTPUT"
           echo "插件 $name $version" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Lint
         run: |
           # 与本地一致的规则集：真错误 + 明确的简化项，不含风格类噪声。
-          python -m ruff check "$PLUGIN_NAME" \
+          python -m ruff check . \
             --select F,E9,SIM,ISC,B,RUF023,UP012,UP035,PLR0402,PLR1714,PLR5501
 
-      - name: Build the relay so the integration tests are not skipped
-        run: cargo build -p synctus-server --bin synctus-server
-
       - name: Test
-        run: python -m pytest "$PLUGIN_NAME/tests" -q
+        run: python -m pytest tests -q
 
       - name: Package
-        run: python scripts/pack_astrbot_plugin.py
+        run: python scripts/pack_plugin.py
 
       - name: Verify the archive is installable
         # 结构与可导入性都在这个脚本里，本地跑的是同一份实现。
-        run: python scripts/verify_astrbot_plugin_zip.py "dist/${{ steps.meta.outputs.artifact }}"
+        run: python scripts/verify_plugin_zip.py "dist/${{ steps.meta.outputs.artifact }}"
 
       - uses: actions/upload-artifact@v4
         with:

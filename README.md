@@ -60,7 +60,7 @@ pip install argon2-cffi pynacl
 
 ### 从 Release 下载 ZIP（推荐）
 
-[Releases](https://github.com/LANqed/Synctus/releases) 里找 `AstrBot 插件` 开头
+[Releases](https://github.com/LANqed/astrbot_plugin_synctus_companion/releases) 里下载
 的发布，下载 `astrbot_plugin_synctus_companion-v*.zip`，然后
 AstrBot WebUI → 插件管理 → **从本地上传**。
 
@@ -72,11 +72,11 @@ Release 里的 ZIP 由 CI 打包并逐项校验过：顶层目录名与 `metadat
 改过代码、或想装未发布的版本：
 
 ```sh
-python scripts/pack_astrbot_plugin.py
+python scripts/pack_plugin.py
 # → dist/astrbot_plugin_synctus_companion-v1.0.0.zip（约 42 KB）
 
 # 可选：跑一遍 CI 用的同一份校验
-python scripts/verify_astrbot_plugin_zip.py dist/astrbot_plugin_synctus_companion-v1.0.0.zip
+python scripts/verify_plugin_zip.py dist/astrbot_plugin_synctus_companion-v1.0.0.zip
 ```
 
 手工压缩也行，但要注意压的是**目录本身而不是目录里的文件**——解开后必须能看到
@@ -149,24 +149,23 @@ Docker:  <挂载出来的 data>/plugins/astrbot_plugin_synctus_companion
 
 ```sh
 # 逻辑与加密向量（无需 Rust）
-python -m pytest astrbot_plugin_synctus_companion/tests -q
+python -m pytest tests -q
 
-# 想跑与真实中继联通的集成测试，先构建中继
-cargo build -p synctus-server --bin synctus-server
+# 若相邻目录有 Synctus 的已构建中继，真实中继集成测试会自动运行
 ```
 
-未构建中继时相关测试自动跳过。测试用 AstrBot 的最小替身驱动插件，
+没有中继二进制时相关测试自动跳过。测试用 AstrBot 的最小替身驱动插件，
 不需要真的跑一个 AstrBot。
 
 ## 发布
 
 插件版本在 `metadata.yaml`，与 Synctus 本体的 `Cargo.toml` 版本无关，
-所以它有独立的发布流程（`.github/workflows/astrbot-plugin.yml`）：
+所以它有独立的发布流程（`.github/workflows/release.yml`）：
 
 ```sh
 # 方式一：GitHub Actions → AstrBot plugin → Run workflow
 # 方式二：推标签，标签必须与 metadata.yaml 的 version 一致
-git tag astrbot-plugin-v1.0.0 && git push origin astrbot-plugin-v1.0.0
+git tag v1.0.0 && git push origin v1.0.0
 ```
 
 两种方式都会先跑 lint 与全部测试（含与真实中继联通的集成测试），

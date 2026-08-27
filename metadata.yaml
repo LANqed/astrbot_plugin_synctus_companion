@@ -4,7 +4,7 @@ author: LANqed
 author_url: https://github.com/LANqed
 description: 把 Bot 变成 Synctus 房间里的一台设备。它会读取 astrbot_plugin_private_companion 的今日日程，像真人搭档一样上报正在做什么、手机电量与待办清单，并在日程切换时来 QQ 说一句。
 desc: 联动 astrbot_plugin_private_companion 的日程，让 Bot 作为虚拟设备出现在 Synctus 里：活动、电量、待办、专注进度一应俱全。
-repo: https://github.com/LANqed/Synctus
+repo: https://github.com/LANqed/astrbot_plugin_synctus_companion
 category: AI 增强
 tags:
   - 陪伴

@@ -8,8 +8,8 @@ AstrBot 的「从本地上传」需要归档里有一个与 metadata.yaml 的 na
 本身就是 Python 应用），一份实现不会两处走样。
 
 用法：
-    python scripts/pack_astrbot_plugin.py
-    python scripts/pack_astrbot_plugin.py --out-dir dist --plugin astrbot_plugin_synctus_companion
+    python scripts/pack_plugin.py
+    python scripts/pack_plugin.py --out-dir dist
 """
 
 from __future__ import annotations
@@ -19,8 +19,6 @@ import re
 import sys
 import zipfile
 from pathlib import Path
-
-DEFAULT_PLUGIN = "astrbot_plugin_synctus_companion"
 
 # 缺了这些文件 AstrBot 装上也跑不起来，宁可在打包时失败。
 REQUIRED_FILES = (
@@ -40,7 +38,16 @@ REQUIRED_FILES = (
 )
 
 # 测试与缓存不属于运行时；带进用户的插件目录只会添乱。
-EXCLUDED_DIRS = {"tests", "__pycache__", ".ruff_cache", ".pytest_cache"}
+EXCLUDED_DIRS = {
+    ".git",
+    ".github",
+    "tests",
+    "scripts",
+    "dist",
+    "__pycache__",
+    ".ruff_cache",
+    ".pytest_cache",
+}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 
 
@@ -78,24 +85,21 @@ def collect_files(plugin_dir: Path) -> list[Path]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="打包 AstrBot 插件为 ZIP")
-    parser.add_argument("--plugin", default=DEFAULT_PLUGIN, help="插件目录名")
     parser.add_argument("--out-dir", default="", help="输出目录，默认 dist/")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
-    plugin_dir = repo_root / args.plugin
-    if not plugin_dir.is_dir():
-        raise SystemExit(f"找不到插件目录: {plugin_dir}")
+    plugin_dir = repo_root
 
     metadata_path = plugin_dir / "metadata.yaml"
     if not metadata_path.is_file():
         raise SystemExit(f"缺少 {metadata_path}")
 
     declared_name = read_plugin_name(metadata_path)
-    if declared_name != plugin_dir.name:
+    if declared_name != repo_root.name:
         # AstrBot 按目录名识别插件，两者不一致会装成一个"另一个插件"。
         raise SystemExit(
-            f"metadata.yaml 的 name（{declared_name}）与目录名（{plugin_dir.name}）不一致"
+            f"metadata.yaml 的 name（{declared_name}）与仓库目录名（{repo_root.name}）不一致"
         )
 
     missing = [
@@ -107,7 +111,7 @@ def main() -> int:
     version = read_version(metadata_path)
     out_dir = Path(args.out_dir) if args.out_dir else repo_root / "dist"
     out_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = out_dir / f"{plugin_dir.name}-{version}.zip"
+    zip_path = out_dir / f"{declared_name}-{version}.zip"
 
     files = collect_files(plugin_dir)
     if not files:
@@ -115,7 +119,7 @@ def main() -> int:
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in files:
-            arcname = Path(plugin_dir.name) / path.relative_to(plugin_dir)
+            arcname = Path(declared_name) / path.relative_to(plugin_dir)
             # 归档内统一用正斜杠，Windows 上打的包在 Linux 上也能正常解开。
             archive.write(path, arcname.as_posix())
 

@@ -9,7 +9,7 @@
    这能抓住漏打包的模块、相对导入写错、schema 与代码不同步这几类问题。
 
 用法：
-    python scripts/verify_astrbot_plugin_zip.py dist/astrbot_plugin_synctus_companion-v1.0.0.zip
+    python scripts/verify_plugin_zip.py dist/astrbot_plugin_synctus_companion-v1.0.0.zip
 """
 
 from __future__ import annotations
