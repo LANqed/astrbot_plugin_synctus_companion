@@ -523,8 +523,9 @@ class SynctusCompanionPlugin(Star):
         )
         icon = "⚡" if battery_state["charging"] else "🔋"
         battery_line = f"手机 {icon}{battery_state['percent']}%"
-        if battery_state.get("minutes_left"):
-            battery_line += f"（约还能用 {battery_state['minutes_left'] // 60} 小时）"
+        left = battery_state.get("minutes_left")
+        if left:
+            battery_line += f"（约还能用 {left // 60} 小时 {left % 60} 分钟）"
         lines.append(battery_line)
 
         focused = focus_minutes_so_far(data.segments, minute)

@@ -243,6 +243,33 @@ def test_minutes_left_is_absent_while_charging():
             assert sample["minutes_left"] is None
 
 
+def test_minutes_left_is_a_plausible_phone_estimate():
+    """不能出现「还能用 45 小时」：估计值必须落在剩余的一天之内。"""
+    data = _data()
+    sim = battery_module.BatterySimulator()
+    seen = 0
+    for minute in range(1440):
+        left = sim.sample(data.segments, "2026-08-27", minute)["minutes_left"]
+        if left is None:
+            continue
+        seen += 1
+        assert 0 < left <= 1440
+    assert seen > 0, "白天应该给出剩余时间估计"
+
+
+def test_minutes_left_counts_down_to_the_charging_moment():
+    data = _data()
+    sim = battery_module.BatterySimulator()
+    minute = 10 * 60
+    left = sim.sample(data.segments, "2026-08-27", minute)["minutes_left"]
+    assert left is not None
+    # 走到估计的那一刻，应该正在充电或已跌到充电阈值
+    percent, charging = sim.sample(
+        data.segments, "2026-08-27", minute + left
+    )["percent"], sim.sample(data.segments, "2026-08-27", minute + left)["charging"]
+    assert charging or percent <= battery_module.CHARGE_TRIGGER
+
+
 def test_different_dates_give_different_curves():
     data = _data()
     sim = battery_module.BatterySimulator()

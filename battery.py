@@ -95,15 +95,20 @@ class BatterySimulator:
         return {"percent": percent, "charging": charging, "minutes_left": self._minutes_left(minute)}
 
     def _minutes_left(self, minute: int) -> Optional[int]:
-        """按当前掉电速度估算剩余分钟，充电时返回 None（和真机上报一致）。"""
+        """还能用多久：沿曲线往前走到需要充电的那一刻。
+
+        不要用"当前掉电速度 × 剩余电量"外推——专注时每小时只掉 2%，
+        那样会算出「还能用 45 小时」这种一眼假的数字。真机报的是按当前
+        使用情况的估计，而我们恰好有整条曲线，直接查即可。
+
+        充电时返回 None，与真机上报一致。
+        """
         if not self._curve:
             return None
-        percent, charging = self._curve[minute % 1440]
-        if charging:
+        if self._curve[minute % 1440][1]:
             return None
-        # 用往后 60 分钟的实际下降量推算速度，避免除以瞬时噪声。
-        ahead = self._curve[(minute + 60) % 1440][0]
-        drop = percent - ahead
-        if drop <= 0:
-            return None
-        return max(5, int(percent / drop * 60))
+        for ahead in range(1, 1441):
+            percent, charging = self._curve[(minute + ahead) % 1440]
+            if charging or percent <= CHARGE_TRIGGER:
+                return ahead
+        return None
