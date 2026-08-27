@@ -36,7 +36,7 @@ help: |
 
   你在 Synctus 里点「敲一敲」「别摸鱼了」时，Bot 会在 QQ 私聊里回应，
   「别摸鱼了」允许穿透静音。
-version: v1.0.1
+version: v1.0.2
 support_platforms:
   - aiocqhttp
   - qq_official
