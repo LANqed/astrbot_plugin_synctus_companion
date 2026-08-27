@@ -51,19 +51,46 @@ synctus/（纯 Python 客户端，端到端加密）→ 中继 → 你的电脑 
 
 ## 安装
 
-三种途径，从最省事到最灵活。**任选一种**即可，之后都要装两个加密依赖：
+先装两个加密依赖，装在 **AstrBot 所用的那个 Python 环境**里：
 
 ```sh
 pip install argon2-cffi pynacl
+# Docker: docker exec -it astrbot pip install argon2-cffi pynacl && 重启容器
 ```
 
-装在 AstrBot 用的那个 Python 环境里。Docker 部署的话进容器执行：
-`docker exec -it astrbot pip install argon2-cffi pynacl`，然后重启容器。
+### 从 Release 下载 ZIP（推荐）
 
-### 方式一：直接复制目录（最省事，不需要 ZIP）
+[Releases](https://github.com/LANqed/Synctus/releases) 里找 `AstrBot 插件` 开头
+的发布，下载 `astrbot_plugin_synctus_companion-v*.zip`，然后
+AstrBot WebUI → 插件管理 → **从本地上传**。
 
-把仓库里的 `astrbot_plugin_synctus_companion` 整个目录复制到 AstrBot 的插件
-目录，目录名不能改：
+Release 里的 ZIP 由 CI 打包并逐项校验过：顶层目录名与 `metadata.yaml` 一致、
+不含测试与字节码缓存、解开后能被真实导入并渲染出状态文本。
+
+### 自己打包
+
+改过代码、或想装未发布的版本：
+
+```sh
+python scripts/pack_astrbot_plugin.py
+# → dist/astrbot_plugin_synctus_companion-v1.0.0.zip（约 42 KB）
+
+# 可选：跑一遍 CI 用的同一份校验
+python scripts/verify_astrbot_plugin_zip.py dist/astrbot_plugin_synctus_companion-v1.0.0.zip
+```
+
+手工压缩也行，但要注意压的是**目录本身而不是目录里的文件**——解开后必须能看到
+`astrbot_plugin_synctus_companion/main.py` 这样的路径，否则 AstrBot 识别不了：
+
+```sh
+zip -r plugin.zip astrbot_plugin_synctus_companion \
+    -x '*/tests/*' -x '*/__pycache__/*'
+```
+
+### 直接复制目录
+
+不想经过 ZIP 的话，把 `astrbot_plugin_synctus_companion` 整个目录放进插件目录，
+目录名不能改：
 
 ```
 Windows: C:\Users\<用户名>\.astrbot\data\plugins\astrbot_plugin_synctus_companion
@@ -71,39 +98,7 @@ Linux:   ~/.astrbot/data/plugins/astrbot_plugin_synctus_companion
 Docker:  <挂载出来的 data>/plugins/astrbot_plugin_synctus_companion
 ```
 
-`tests/` 与 `__pycache__/` 不需要复制，留着也无害。然后在 WebUI 里重载插件。
-
-### 方式二：让 AstrBot 从 Git 安装
-
-插件管理 → 从 Git 安装，填仓库地址与分支：
-
-```
-https://github.com/LANqed/Synctus
-分支 astrbot-plugin
-```
-
-注意这个仓库根目录不是插件本体（它同时是 Synctus 的 Rust 工程），
-若 AstrBot 拒绝识别，用方式一或方式三。
-
-### 方式三：自己生成 ZIP 再上传
-
-仓库自带打包脚本，一条命令生成合规归档：
-
-```sh
-pwsh scripts/pack-astrbot-plugin.ps1
-# → dist/astrbot_plugin_synctus_companion-v1.0.0.zip（约 42 KB）
-```
-
-脚本会校验必需文件、剔除 `tests/` 与 `__pycache__`，并保证 ZIP 内的顶层目录名
-与 `metadata.yaml` 的 `name` 一致。然后在 WebUI 的插件管理里选「从本地上传」。
-
-没有 PowerShell 的话，手工压缩也行——关键是**压缩的是目录本身而不是目录里的
-文件**，解开后必须能看到 `astrbot_plugin_synctus_companion/main.py` 这样的路径：
-
-```sh
-zip -r plugin.zip astrbot_plugin_synctus_companion \
-    -x '*/tests/*' -x '*/__pycache__/*'
-```
+然后在 WebUI 里重载插件。`tests/` 不必复制。
 
 ## 配置
 
@@ -162,3 +157,17 @@ cargo build -p synctus-server --bin synctus-server
 
 未构建中继时相关测试自动跳过。测试用 AstrBot 的最小替身驱动插件，
 不需要真的跑一个 AstrBot。
+
+## 发布
+
+插件版本在 `metadata.yaml`，与 Synctus 本体的 `Cargo.toml` 版本无关，
+所以它有独立的发布流程（`.github/workflows/astrbot-plugin.yml`）：
+
+```sh
+# 方式一：GitHub Actions → AstrBot plugin → Run workflow
+# 方式二：推标签，标签必须与 metadata.yaml 的 version 一致
+git tag astrbot-plugin-v1.0.0 && git push origin astrbot-plugin-v1.0.0
+```
+
+两种方式都会先跑 lint 与全部测试（含与真实中继联通的集成测试），
+打包、校验归档可导入，最后把 ZIP 与 `SHA256SUMS.txt` 附到 Release。
