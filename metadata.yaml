@@ -1,0 +1,43 @@
+name: astrbot_plugin_synctus_companion
+display_name: 它也在 Synctus 里
+author: LANqed
+author_url: https://github.com/LANqed
+description: 把 Bot 变成 Synctus 房间里的一台设备。它会读取 astrbot_plugin_private_companion 的今日日程，像真人搭档一样上报正在做什么、手机电量与待办清单，并在日程切换时来 QQ 说一句。
+desc: 联动 astrbot_plugin_private_companion 的日程，让 Bot 作为虚拟设备出现在 Synctus 里：活动、电量、待办、专注进度一应俱全。
+repo: https://github.com/LANqed/Synctus
+category: AI 增强
+tags:
+  - 陪伴
+  - 日程
+  - 状态同步
+  - 生活模拟
+  - Synctus
+help: |
+  这个插件把 Bot 当成一个真人搭档：它的一天来自 astrbot_plugin_private_companion
+  的日程，然后作为一台设备出现在你的 Synctus 房间里，你在电脑悬浮窗或手机通知栏
+  能看到「在忙 · 备忘录：赶稿子 · 🔋68% · 🍅专注 23:10 · ☑4/10」。
+
+  私聊命令：
+  - 陪伴 状态：现在在做什么、手机电量、今日专注、待办进度、上报状态
+  - 陪伴 日程：今天的完整日程（标出当前所在段与日程来源）
+  - 陪伴 待办：待办清单与临近的重要日期（deadline 会带「还剩 N 天」）
+  - 陪伴 电量：手机电量与预计可用时间
+  - 陪伴 连接：Synctus 上报状态与房间标识前缀
+  - 陪伴 静音 / 陪伴 恢复：暂停或恢复主动消息
+  - 日程 / 待办：等价于上面对应的子命令
+
+  必要配置：
+  1. companion 组的 target_users 填 QQ 号（否则不会发 QQ 消息）
+  2. synctus 组的 server 与 invite_code 填成与你自己设备相同的值（否则不上报）
+  3. Python 依赖：pip install argon2-cffi pynacl
+
+  可选依赖 astrbot_plugin_private_companion：装了就用它每天生成的真实日程、
+  拟人状态与重要日期；没装则退回内置默认作息，插件仍然可用。
+
+  你在 Synctus 里点「敲一敲」「别摸鱼了」时，Bot 会在 QQ 私聊里回应，
+  「别摸鱼了」允许穿透静音。
+version: v1.0.0
+support_platforms:
+  - aiocqhttp
+  - qq_official
+astrbot_version: ">=4.0.0"

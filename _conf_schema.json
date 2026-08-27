@@ -1,0 +1,141 @@
+{
+  "bot_name": {
+    "description": "Bot 的名字",
+    "type": "string",
+    "default": "",
+    "hint": "留空则自动读取 astrbot_plugin_private_companion 配置里的 bot_name，都读不到时用「小澈」。"
+  },
+  "target_users": {
+    "description": "QQ 侧陪伴的目标用户",
+    "type": "list",
+    "items": { "type": "string" },
+    "default": [],
+    "hint": "填 QQ 号（按 aiocqhttp 私聊处理）或完整会话标识（如 qq_official:FriendMessage:openid）。留空则只做 Synctus 上报，不发 QQ 消息。"
+  },
+  "dependency_data_file": {
+    "description": "依赖插件数据文件路径（可选）",
+    "type": "string",
+    "default": "",
+    "hint": "留空自动定位 data/plugin_data/astrbot_plugin_private_companion/companions.json。仅当依赖插件目录被改名或数据目录非默认时才需要填写。"
+  },
+  "synctus": {
+    "description": "Synctus 虚拟设备",
+    "type": "object",
+    "hint": "让 Bot 作为一台设备出现在 Synctus 房间里，你在电脑悬浮窗/手机通知栏能像看真人搭档一样看到它的活动、电量与待办。需要 pip install argon2-cffi pynacl。",
+    "items": {
+      "enable_synctus": {
+        "description": "启用 Synctus 上报",
+        "type": "bool",
+        "default": true
+      },
+      "server": {
+        "description": "中继服务器地址",
+        "type": "string",
+        "default": "127.0.0.1:8787",
+        "hint": "host:port，与其他 Synctus 客户端填的一致。"
+      },
+      "invite_code": {
+        "description": "配对码",
+        "type": "string",
+        "default": "",
+        "hint": "与你自己设备上填的配对码完全相同才会进同一个房间。它是密钥材料，不要外传；留空则不连接。"
+      },
+      "tls": {
+        "description": "使用 TLS 连接中继",
+        "type": "bool",
+        "default": true
+      },
+      "tls_verify": {
+        "description": "校验中继证书",
+        "type": "bool",
+        "default": true,
+        "hint": "仅在可信网络里连自签中继时才关闭。载荷始终端到端加密，但关闭后会失去对中继身份的验证。"
+      },
+      "synctus_user": {
+        "description": "用户昵称（设备分组标识）",
+        "type": "string",
+        "default": "",
+        "hint": "留空使用 Bot 名字。与你自己设备上填的昵称不同即可，这样双方会显示为两个人。"
+      },
+      "device_name": {
+        "description": "设备名",
+        "type": "string",
+        "default": "手机",
+        "hint": "对端会看到「<Bot名> · <设备名>」。"
+      },
+      "share_activity": {
+        "description": "上报正在做什么",
+        "type": "bool",
+        "default": true,
+        "hint": "把当前日程活动作为前台应用与窗口标题上报，例如「备忘录：赶稿子」。"
+      },
+      "share_battery": {
+        "description": "上报手机电量",
+        "type": "bool",
+        "default": true,
+        "hint": "按日程模拟出的电量曲线：睡觉时充电，摸鱼掉得快，低于 18% 会去充。"
+      },
+      "share_tasks": {
+        "description": "上报待办清单",
+        "type": "bool",
+        "default": true
+      },
+      "task_count": {
+        "description": "待办清单目标条数",
+        "type": "int",
+        "default": 8,
+        "slider": { "min": 3, "max": 12, "step": 1 }
+      },
+      "forward_nudges": {
+        "description": "把对端的敲一敲转达到 QQ",
+        "type": "bool",
+        "default": true,
+        "hint": "你在悬浮窗点「敲一敲」「别摸鱼了」时，Bot 会在 QQ 私聊里回应。「别摸鱼了」允许穿透静音。"
+      }
+    }
+  },
+  "companion": {
+    "description": "QQ 侧主动陪伴",
+    "type": "object",
+    "hint": "Bot 在日程切换和空闲时主动找你说话。睡觉段、专注段与免打扰时段保持安静。",
+    "items": {
+      "enable_transition": {
+        "description": "日程切换时主动说一句",
+        "type": "bool",
+        "default": true,
+        "hint": "优先使用依赖插件日程里的 message_seed，没有时按活动生成一句。"
+      },
+      "enable_idle_chat": {
+        "description": "空闲时段随机搭话",
+        "type": "bool",
+        "default": true
+      },
+      "idle_chance_per_minute": {
+        "description": "随机搭话概率（每分钟）",
+        "type": "float",
+        "default": 0.006,
+        "hint": "0.006 约合每小时 0.36 次。设为 0 关闭。",
+        "slider": { "min": 0.0, "max": 0.05, "step": 0.001 }
+      },
+      "max_daily_messages": {
+        "description": "每日主动消息上限（每用户）",
+        "type": "int",
+        "default": 12,
+        "slider": { "min": 3, "max": 30, "step": 1 }
+      },
+      "min_gap_minutes": {
+        "description": "随机搭话最小间隔（分钟）",
+        "type": "int",
+        "default": 45,
+        "hint": "日程切换汇报只受 5 分钟间隔限制，早安晚安不会被顶掉。",
+        "slider": { "min": 10, "max": 240, "step": 5 }
+      },
+      "quiet_hours": {
+        "description": "免打扰时段",
+        "type": "string",
+        "default": "23:00-08:00",
+        "hint": "格式 HH:MM-HH:MM，支持跨午夜；期间不随机搭话，日程的晚安/早安不受影响。留空关闭。"
+      }
+    }
+  }
+}
