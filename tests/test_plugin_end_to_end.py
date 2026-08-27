@@ -246,7 +246,7 @@ def test_battery_subcommand(plugin_module):
 def test_help_lists_subcommands(plugin_module):
     plugin, _ = _make_plugin(plugin_module)
     text = plugin._handle_sub_command("帮助", "")
-    for expected in ("陪伴 状态", "陪伴 日程", "陪伴 待办", "陪伴 电量"):
+    for expected in ("Synctus 状态", "Synctus 日程", "Synctus 待办", "Synctus 电量"):
         assert expected in text
 
 
@@ -382,7 +382,7 @@ def test_snapshot_maps_focus_segment_onto_synctus_fields(plugin_module):
     assert snapshot["pomodoro"]["phase"] == "focus"
     assert snapshot["goal_min"] > 0
     assert 0 < snapshot["battery"]["percent"] <= 100
-    assert snapshot["name"] == "小澈 · 手机"
+    assert snapshot["name"] == "手机"
     assert snapshot["user"] == "小澈"
     assert any("交稿" in item["title"] for item in todos)
     assert snapshot["todos_open"] + snapshot["todos_done_today"] == len(todos)
@@ -531,7 +531,7 @@ def test_plugin_publishes_bot_state_to_a_real_relay(plugin_module, tmp_path):
                         await asyncio.sleep(0.05)
                     assert observed, "对端没有看到 Bot 的状态"
                     payload = observed[-1]
-                    assert payload["name"] == "小澈 · 手机"
+                    assert payload["name"] == "手机"
                     assert payload["presence"] == "active"
                     assert payload["foreground"]["title"] == "赶稿子"
                     assert 0 < payload["battery"]["percent"] <= 100

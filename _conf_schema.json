@@ -61,7 +61,7 @@
         "description": "设备名",
         "type": "string",
         "default": "手机",
-        "hint": "对端会看到「<Bot名> · <设备名>」。"
+        "hint": "对端会看到「<Bot名> · <设备名>」。只填设备名，例如「手机」，不要重复填写 Bot 名字。"
       },
       "share_activity": {
         "description": "上报正在做什么",

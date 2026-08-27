@@ -318,8 +318,9 @@ class SynctusCompanionPlugin(Star):
         return snapshot, todos
 
     def _device_display_name(self) -> str:
-        name = self._cfg_str("device_name", DEFAULT_DEVICE_NAME) or DEFAULT_DEVICE_NAME
-        return f"{self._bot_name()} · {name}"
+        # Synctus 界面会先显示 user 分组，再显示 StatusSnapshot.name。不要在
+        # name 里重复 Bot 名称，否则会渲染成「初音 · 初音 · 手机」。
+        return self._cfg_str("device_name", DEFAULT_DEVICE_NAME) or DEFAULT_DEVICE_NAME
 
     @staticmethod
     def _snapshot_changed(previous: Optional[dict], current: dict) -> bool:
@@ -605,7 +606,7 @@ class SynctusCompanionPlugin(Star):
             if umo:
                 self._user_state(umo)["muted"] = True
                 self._save_state()
-            return "好……我安静陪着你。想我了就发「陪伴 恢复」"
+            return "好……我安静陪着你。想我了就发「Synctus 恢复」"
         if sub in {"恢复", "开口"}:
             if umo:
                 self._user_state(umo)["muted"] = False
@@ -631,18 +632,18 @@ class SynctusCompanionPlugin(Star):
             return self._synctus_line() + extra
         if sub in {"帮助", "help", "命令"}:
             return (
-                "陪伴 状态 - 现在在做什么、电量、专注、待办\n"
-                "陪伴 日程 - 今天的完整日程\n"
-                "陪伴 待办 - 待办清单与盯着的日子\n"
-                "陪伴 电量 - 手机电量\n"
-                "陪伴 连接 - Synctus 上报状态\n"
-                "陪伴 静音 / 陪伴 恢复 - 暂停或恢复主动消息"
+                "Synctus 状态 - 现在在做什么、电量、专注、待办\n"
+                "Synctus 日程 - 今天的完整日程\n"
+                "Synctus 待办 - 待办清单与盯着的日子\n"
+                "Synctus 电量 - 手机电量\n"
+                "Synctus 连接 - Synctus 上报状态\n"
+                "Synctus 静音 / Synctus 恢复 - 暂停或恢复主动消息"
             )
         return self._render_status(umo, now)
 
     # ---- 命令 --------------------------------------------------------
 
-    @filter.command("陪伴", alias={"日程陪伴", "同步陪伴"})
+    @filter.command("Synctus", alias={"synctus", "同步状态"})
     async def companion_command(self, event: AstrMessageEvent):
         """查看 Bot 的当前活动、电量、待办与 Synctus 上报状态。"""
         text = (
